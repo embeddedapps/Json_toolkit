@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced JSON Toolkit</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- CodeMirror for the editor -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
+
+    <!-- JMESPath for JSON querying -->
+    <script src="https://cdn.jsdelivr.net/npm/jmespath@0.15.0/jmespath.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .CodeMirror {
+            height: 100%;
+            border-radius: 0.5rem;
+            font-size: 14px;
+        }
+        .cm-s-dracula.CodeMirror, .cm-s-dracula .CodeMirror-gutters {
+            background-color: #1f2937; /* gray-800 */
+        }
+        .status-bar {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 p-3 shadow-lg z-10">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold text-white">Advanced JSON Toolkit</h1>
+                <div id="user-info" class="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded-md hidden">
+                    User ID: <span id="user-id-display"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
+            
+            <!-- Left Panel: Editor and Query -->
+            <div class="flex flex-col h-full overflow-hidden">
+                <!-- Editor Actions -->
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                    <button id="format-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Validate & Format</button>
+                    <button id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Save to Cloud</button>
+                    <button id="load-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Load from Cloud</button>
+                </div>
+
+                <!-- JSON Editor -->
+                <div id="json-editor-container" class="flex-grow h-64 lg:h-auto border border-gray-700 rounded-lg shadow-inner bg-gray-800 overflow-hidden">
+                    <textarea id="json-editor"></textarea>
+                </div>
+
+                <!-- JMESPath Query Input -->
+                <div class="mt-4">
+                    <label for="query-input" class="block text-sm font-medium text-gray-400 mb-1">JMESPath Query</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="query-input" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="e.g., people[?age > `30`].name">
+                        <button id="run-query-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md">Run Query</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Tabs for Tree, Query Result, AI -->
+            <div class="flex flex-col h-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                <!-- Tab Headers -->
+                <div class="flex border-b border-gray-700">
+                    <button data-tab="tree-view" class="tab-btn flex-1 py-2 px-4 font-semibold bg-indigo-600 text-white">Tree View</button>
+                    <button data-tab="query-result" class="tab-btn flex-1 py-2 px-4 font-semibold text-gray-400 hover:bg-gray-700">Query Result</button>
+                    <button data-tab="ai-helper" class="tab-btn flex-1 py-2 px-4 font-semibold text-gray-400 hover:bg-gray-700">AI Helper</button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="flex-grow p-4 overflow-y-auto">
+                    <div id="tree-view" class="tab-content">
+                        <p class="text-gray-500">Format your JSON to see the tree view here.</p>
+                    </div>
+                    <div id="query-result" class="tab-content hidden">
+                        <pre id="query-result-pre" class="whitespace-pre-wrap text-sm text-green-300"></pre>
+                        <p id="query-result-placeholder" class="text-gray-500">Query results will appear here.</p>
+                    </div>
+                    <div id="ai-helper" class="tab-content hidden">
+                        <button id="explain-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg mb-4">Explain this JSON with AI</button>
+                        <div id="ai-explanation" class="text-gray-300 space-y-2">
+                            <p class="text-gray-500">The AI explanation will appear here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Status Bar -->
+        <footer id="status-bar" class="bg-gray-800 text-center py-2 text-sm font-medium text-gray-400 border-t border-gray-700">
+            Ready
+        </footer>
+    </div>
+
+    <!-- Load Modal -->
+    <div id="load-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">Load JSON from Cloud</h2>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="load-list" class="p-4 overflow-y-auto">
+                <!-- Saved items will be injected here -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, serverTimestamp, query, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL STATE ---
+        let editor;
+        let db, auth, userId;
+        let isAuthReady = false;
+
+        // --- CONFIG & INITIALIZATION ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-json-toolkit';
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB8ceD2EYfN252U3FJzoh8vqK_T0TdMaHs",
+            authDomain: "my-json-toolkit.firebaseapp.com",
+            projectId: "my-json-toolkit",
+            storageBucket: "my-json-toolkit.firebasestorage.app",
+            messagingSenderId: "953585382396",
+            appId: "1:953585382396:web:eb558c2f6630a5004c3879",
+            measurementId: "G-08YJ9MWY8P"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- UI ELEMENTS ---
+        const formatBtn = document.getElementById('format-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const loadBtn = document.getElementById('load-btn');
+        const runQueryBtn = document.getElementById('run-query-btn');
+        const explainBtn = document.getElementById('explain-btn');
+        const statusBar = document.getElementById('status-bar');
+        const treeViewContainer = document.getElementById('tree-view');
+        const queryResultPre = document.getElementById('query-result-pre');
+        const queryResultPlaceholder = document.getElementById('query-result-placeholder');
+        const aiExplanationContainer = document.getElementById('ai-explanation');
+        const queryInput = document.getElementById('query-input');
+        const loadModal = document.getElementById('load-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const loadListContainer = document.getElementById('load-list');
+        const userInfoDiv = document.getElementById('user-info');
+        const userIdDisplay = document.getElementById('user-id-display');
+
+
+        // --- UTILITY FUNCTIONS ---
+        
+        /**
+         * Updates the status bar with a message and style.
+         * @param {string} message - The text to display.
+         * @param {'success' | 'error' | 'info'} type - The type of message.
+         */
+        function updateStatus(message, type = 'info') {
+            statusBar.textContent = message;
+            statusBar.classList.remove('bg-green-600', 'bg-red-600', 'bg-gray-800', 'text-white');
+            switch (type) {
+                case 'success':
+                    statusBar.classList.add('bg-green-600', 'text-white');
+                    break;
+                case 'error':
+                    statusBar.classList.add('bg-red-600', 'text-white');
+                    break;
+                default:
+                    statusBar.classList.add('bg-gray-800');
+            }
+            setTimeout(() => updateStatus('Ready'), 3000);
+        }
+
+        /**
+         * Recursively builds and renders the HTML for the JSON tree view.
+         * @param {any} data - The JSON data to render.
+         * @param {HTMLElement} container - The element to append the tree to.
+         */
+        function renderTreeView(data, container) {
+            container.innerHTML = ''; // Clear previous tree
+            const tree = createTreeElement(data);
+            container.appendChild(tree);
+        }
+
+        function createTreeElement(data) {
+            const root = document.createElement('div');
+            root.className = 'space-y-1';
+
+            if (Array.isArray(data)) {
+                appendElements(data, root, true);
+            } else if (typeof data === 'object' && data !== null) {
+                appendElements(Object.entries(data), root, false);
+            } else {
+                const valueEl = document.createElement('span');
+                valueEl.textContent = JSON.stringify(data);
+                valueEl.className = 'text-green-400';
+                root.appendChild(valueEl);
+            }
+            return root;
+        }
+
+        function appendElements(items, parent, isArray) {
+            items.forEach((item, index) => {
+                const key = isArray ? index : item[0];
+                const value = isArray ? item : item[1];
+
+                const details = document.createElement('details');
+                details.open = true;
+                details.className = 'pl-4 border-l border-gray-600';
+
+                const summary = document.createElement('summary');
+                summary.className = 'cursor-pointer select-none text-cyan-400 hover:bg-gray-700/50 rounded px-1';
+                summary.textContent = key;
+
+                if (typeof value === 'object' && value !== null) {
+                    details.appendChild(summary);
+                    details.appendChild(createTreeElement(value));
+                    parent.appendChild(details);
+                } else {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center space-x-2';
+                    const keySpan = document.createElement('span');
+                    keySpan.textContent = `${key}:`;
+                    keySpan.className = 'text-cyan-400';
+                    const valueSpan = document.createElement('span');
+                    valueSpan.textContent = JSON.stringify(value);
+                    valueSpan.className = `text-${typeof value === 'string' ? 'orange' : 'purple'}-400`;
+                    div.appendChild(keySpan);
+                    div.appendChild(valueSpan);
+                    details.appendChild(div);
+                    parent.appendChild(details);
+                }
+            });
+        }
+
+
+        // --- CORE FUNCTIONALITY ---
+
+        /**
+         * Validates and formats the JSON in the editor.
+         */
+        function handleFormat() {
+            try {
+                const currentJson = editor.getValue();
+                if (!currentJson.trim()) {
+                    updateStatus('Editor is empty.', 'info');
+                    return;
+                }
+                const parsed = JSON.parse(currentJson);
+                const formatted = JSON.stringify(parsed, null, 2);
+                editor.setValue(formatted);
+                renderTreeView(parsed, treeViewContainer);
+                updateStatus('JSON is valid and formatted!', 'success');
+            } catch (e) {
+                treeViewContainer.innerHTML = '<p class="text-red-400">Invalid JSON. Cannot build tree.</p>';
+                updateStatus(`Invalid JSON: ${e.message}`, 'error');
+            }
+        }
+
+        /**
+         * Runs the JMESPath query against the current JSON.
+         */
+        function handleRunQuery() {
+            try {
+                const jsonStr = editor.getValue();
+                const query = queryInput.value;
+                if (!jsonStr.trim() || !query.trim()) {
+                    updateStatus('JSON or query is empty.', 'info');
+                    return;
+                }
+                const jsonData = JSON.parse(jsonStr);
+                const result = jmespath.search(jsonData, query);
+                
+                queryResultPre.textContent = JSON.stringify(result, null, 2);
+                queryResultPlaceholder.classList.add('hidden');
+                queryResultPre.classList.remove('hidden');
+                
+                updateStatus('Query executed successfully.', 'success');
+                switchTab('query-result');
+            } catch (e) {
+                queryResultPre.textContent = '';
+                queryResultPlaceholder.classList.remove('hidden');
+                queryResultPlaceholder.textContent = `Error: ${e.message}`;
+                updateStatus(`Query or JSON error: ${e.message}`, 'error');
+            }
+        }
+
+        /**
+         * Uses Gemini to explain the JSON.
+         */
+        async function handleExplain() {
+            const jsonStr = editor.getValue();
+            if (!jsonStr.trim()) {
+                updateStatus('Cannot explain empty JSON.', 'info');
+                return;
+            }
+
+            try {
+                JSON.parse(jsonStr); // Just to validate before sending
+            } catch (e) {
+                updateStatus('Please provide valid JSON before explaining.', 'error');
+                return;
+            }
+
+            aiExplanationContainer.innerHTML = '<p class="text-gray-400 animate-pulse">AI is thinking...</p>';
+            updateStatus('Sending to AI for explanation...', 'info');
+
+            const prompt = `
+                Please provide a concise explanation of the following JSON data. 
+                Describe its main purpose, the overall structure, and what the key fields represent.
+                Be clear and easy to understand for someone who might not be familiar with this specific data format.
+
+                JSON Data:
+                \`\`\`json
+                ${jsonStr}
+                \`\`\`
+            `;
+
+            try {
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Leave empty for Canvas environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    // Basic markdown to HTML conversion
+                    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                   .replace(/\n/g, '<br>');
+                    aiExplanationContainer.innerHTML = html;
+                    updateStatus('AI explanation received.', 'success');
+                } else {
+                    throw new Error('Unexpected API response structure.');
+                }
+            } catch (error) {
+                console.error("AI Helper Error:", error);
+                aiExplanationContainer.innerHTML = `<p class="text-red-400">Error fetching explanation: ${error.message}</p>`;
+                updateStatus('Failed to get AI explanation.', 'error');
+            }
+        }
+
+        // --- FIRESTORE & AUTH ---
+
+        /**
+         * Saves the current editor content to Firestore.
+         */
+        async function handleSave() {
+            if (!isAuthReady || !userId) {
+                updateStatus('Authentication not ready. Please wait.', 'error');
+                return;
+            }
+            const content = editor.getValue();
+            if (!content.trim()) {
+                updateStatus('Cannot save empty JSON.', 'info');
+                return;
+            }
+
+            try {
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/jsondocs`), {
+                    content: content,
+                    createdAt: serverTimestamp()
+                });
+                updateStatus(`Saved successfully with ID: ${docRef.id}`, 'success');
+            } catch (error) {
+                console.error("Error saving document: ", error);
+                updateStatus('Error saving to cloud.', 'error');
+            }
+        }
+
+        /**
+         * Fetches and displays saved documents in the load modal.
+         */
+        async function handleLoad() {
+            if (!isAuthReady || !userId) {
+                updateStatus('Authentication not ready. Please wait.', 'error');
+                return;
+            }
+            
+            loadListContainer.innerHTML = '<p class="animate-pulse">Loading saved documents...</p>';
+            loadModal.classList.remove('hidden');
+
+            try {
+                const q = query(collection(db, `artifacts/${appId}/users/${userId}/jsondocs`));
+                const querySnapshot = await getDocs(q);
+                
+                loadListContainer.innerHTML = ''; // Clear loading message
+                
+                if (querySnapshot.empty) {
+                    loadListContainer.innerHTML = '<p>No saved documents found.</p>';
+                    return;
+                }
+
+                const docs = [];
+                querySnapshot.forEach(doc => docs.push({ id: doc.id, data: doc.data() }));
+                
+                // Sort by creation date, newest first
+                docs.sort((a, b) => (b.data.createdAt?.toDate() || 0) - (a.data.createdAt?.toDate() || 0));
+
+                docs.forEach(docData => {
+                    const item = document.createElement('div');
+                    item.className = 'p-3 mb-2 bg-gray-700 rounded-lg cursor-pointer hover:bg-indigo-600 transition-colors';
+                    item.dataset.docId = docData.id;
+                    const date = docData.data.createdAt ? docData.data.createdAt.toDate().toLocaleString() : 'Date unknown';
+                    const preview = docData.data.content.substring(0, 100) + '...';
+                    item.innerHTML = `
+                        <p class="font-semibold">Saved on: ${date}</p>
+                        <p class="text-xs text-gray-400 mt-1">${preview}</p>
+                    `;
+                    item.addEventListener('click', async () => {
+                        try {
+                            const docRef = doc(db, `artifacts/${appId}/users/${userId}/jsondocs`, docData.id);
+                            const docSnap = await getDoc(docRef);
+                            if (docSnap.exists()) {
+                                editor.setValue(docSnap.data().content);
+                                loadModal.classList.add('hidden');
+                                updateStatus(`Loaded document ${docData.id}`, 'success');
+                                handleFormat(); // Also format and render tree on load
+                            }
+                        } catch (e) {
+                            updateStatus('Failed to load selected document.', 'error');
+                        }
+                    });
+                    loadListContainer.appendChild(item);
+                });
+
+            } catch (error) {
+                console.error("Error loading documents: ", error);
+                loadListContainer.innerHTML = '<p class="text-red-400">Failed to load documents.</p>';
+                updateStatus('Error loading from cloud.', 'error');
+            }
+        }
+
+
+        // --- UI & EVENT LISTENERS ---
+
+        /**
+         * Switches the visible tab in the right panel.
+         * @param {string} tabId - The data-tab attribute of the target tab.
+         */
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('bg-indigo-600', 'text-white');
+                    btn.classList.remove('text-gray-400', 'hover:bg-gray-700');
+                } else {
+                    btn.classList.remove('bg-indigo-600', 'text-white');
+                    btn.classList.add('text-gray-400', 'hover:bg-gray-700');
+                }
+            });
+        }
+
+        window.onload = function() {
+            // Initialize CodeMirror editor
+            editor = CodeMirror.fromTextArea(document.getElementById('json-editor'), {
+                mode: { name: "javascript", json: true },
+                theme: "dracula",
+                lineNumbers: true,
+                autoCloseBrackets: true,
+                matchBrackets: true,
+            });
+            
+            // Set initial content
+            const initialJson = {
+                "hello": "world",
+                "features": [
+                    "Syntax Highlighting",
+                    "Tree View",
+                    "JMESPath Querying",
+                    "Cloud Save/Load",
+                    "AI Helper"
+                ],
+                "exampleQuery": "features[0]",
+                "isAdvanced": true,
+                "version": 1.0
+            };
+            editor.setValue(JSON.stringify(initialJson, null, 2));
+
+            // Initial render
+            renderTreeView(initialJson, treeViewContainer);
+
+            // Event Listeners
+            formatBtn.addEventListener('click', handleFormat);
+            runQueryBtn.addEventListener('click', handleRunQuery);
+            explainBtn.addEventListener('click', handleExplain);
+            saveBtn.addEventListener('click', handleSave);
+            loadBtn.addEventListener('click', handleLoad);
+            closeModalBtn.addEventListener('click', () => loadModal.classList.add('hidden'));
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+            
+            // Firebase Initialization
+            try {
+                if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Firebase config is missing or empty.");
+                }
+                setLogLevel('debug');
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log("User is signed in with UID:", userId);
+                        userIdDisplay.textContent = userId;
+                        userInfoDiv.classList.remove('hidden');
+                        updateStatus('Authenticated and ready.', 'success');
+                    } else {
+                        console.log("User is not signed in. Attempting to sign in.");
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                                console.log("Signed in with custom token.");
+                            } else {
+                                await signInAnonymously(auth);
+                                console.log("Signed in anonymously.");
+                            }
+                        } catch (error) {
+                            console.error("Authentication failed:", error);
+                            updateStatus('Authentication failed. Cloud features disabled.', 'error');
+                            isAuthReady = false;
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                updateStatus('Firebase init failed. Cloud features disabled.', 'error');
+                isAuthReady = false;
+            }
+        };
+
+    </script>
+</body>
+</html>
