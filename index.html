@@ -141,16 +141,8 @@
 
         // --- CONFIG & INITIALIZATION ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-json-toolkit';
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyB8ceD2EYfN252U3FJzoh8vqK_T0TdMaHs",
-            authDomain: "my-json-toolkit.firebaseapp.com",
-            projectId: "my-json-toolkit",
-            storageBucket: "my-json-toolkit.firebasestorage.app",
-            messagingSenderId: "953585382396",
-            appId: "1:953585382396:web:eb558c2f6630a5004c3879",
-            measurementId: "G-08YJ9MWY8P"
-        };
+        // This will use the config provided by the environment, or an empty object if not available.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // --- UI ELEMENTS ---
